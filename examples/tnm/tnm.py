@@ -74,12 +74,14 @@ def edges_swap_1k(G0, nswap=1, max_tries=100):  #时变网络的连边置乱算�
         if len(set([u,v,x,y])) < 4: #防止自环           
             continue
         if y not in G[u] and v not in G[x]: 
-            for i in range(G.number_of_edges(u,v)):
+            for i in G[u][v].keys():
+#                print G[u][v].keys(), i
                 G.add_edge(u,y,key=i,timestamp=G[u][v][i]['timestamp'])
                 G.remove_edge(u,v,key=i)
-            for j in range(G.number_of_edges(x,y)):
+            for j in G[x][y].keys():
+#                print G[x][y].keys(), j
                 G.add_edge(x,v,key=j,timestamp=G[x][y][j]['timestamp']) 
-                G.remove_edge(x,y,key=i)
+                G.remove_edge(x,y,key=j)
 #            G.remove_edges_from([(u,v),(x,y)])#仅移除一条边
             swapcount+=1        
     return G
@@ -115,8 +117,8 @@ def time_swap(G0, nswap=1, max_tries=100):  #时变网络的时间置乱算法
         y=random.choice(list(G[x]))
         if len(set([u,v,x,y])) < 3: #保证从两条边上选时间戳           
             continue
-        key1 = random.choice(range(G.number_of_edges(u,v)))
-        key2 = random.choice(range(G.number_of_edges(x,y)))
+        key1 = random.choice(G[u][v].keys())
+        key2 = random.choice(G[x][y].keys())
         stamp1 = G[u][v][key1]['timestamp']
         stamp2 = G[x][y][key2]['timestamp']
         if stamp1 == stamp2 or {'timestamp':stamp1} in G[x][y].values() or {'timestamp':stamp2} in G[u][v].values():
@@ -148,14 +150,15 @@ def time_random(G0, nswap=1, max_tries=100,mins=1000000,maxs=31556926):  #时变
             break
         n+=1
         u,v = random.choice(G.edges())
-        key1 = random.choice(range(G.number_of_edges(u,v)))
+        key1 = random.choice(G[u][v].keys())
         stamp1 = G[u][v][key1]['timestamp']
         stamp2 = random.randrange(mins,maxs)
         if stamp1 == stamp2 or {'timestamp':stamp2} in G[u][v].values():
             continue
         else:
             G[u][v][key1]['timestamp'] = stamp2
-            swapcount+=1        
+            swapcount+=1
+        print n,swapcount
     return G
    
 def timeweight_swap(G0, nswap=1, max_tries=100):  #时变网络的时权置乱算法
@@ -193,10 +196,10 @@ def timeweight_swap(G0, nswap=1, max_tries=100):  #时变网络的时权置乱�
         stamp1 = []
         stamp2 = []        
 #        print G.number_of_edges(u,v),G.number_of_edges(x,y)
-        for i in range(G.number_of_edges(u,v)):
+        for i in G[u][v].keys():
             stamp1.append(G[u][v][i]['timestamp'])
             G.remove_edge(u,v,key=i)
-        for i in range(G.number_of_edges(x,y)):
+        for i in G[x][y].keys():
             stamp2.append(G[x][y][i]['timestamp'])
             G.remove_edge(x,y,key=i)
 #        print G.number_of_edges(u,v),G.number_of_edges(x,y)
@@ -242,10 +245,10 @@ def sametimeweight_swap(G0, nswap=1, max_tries=100):  #时变网络的等时权�
             stamp1 = []
             stamp2 = []        
 #            print G.number_of_edges(u,v),G.number_of_edges(x,y)
-            for i in range(G.number_of_edges(u,v)):
+            for i in G[u][v].keys():
                 stamp1.append(G[u][v][i]['timestamp'])
                 G.remove_edge(u,v,key=i)
-            for i in range(G.number_of_edges(x,y)):
+            for i in G[x][y].keys():
                 stamp2.append(G[x][y][i]['timestamp'])
                 G.remove_edge(x,y,key=i)
 #            print G.number_of_edges(u,v),G.number_of_edges(x,y)
@@ -289,8 +292,8 @@ def time_SameMode_swap(G0, nswap=1, max_tries=100, mode='day'):
         y=random.choice(list(G[x]))
         if len(set([u,v,x,y])) < 3: #保证从两条边上选时间戳           
             continue
-        key1 = random.choice(range(G.number_of_edges(u,v)))
-        key2 = random.choice(range(G.number_of_edges(x,y)))
+        key1 = random.choice(G[u][v].keys())
+        key2 = random.choice(G[x][y].keys())
         stamp1 = G[u][v][key1]['timestamp']
         stamp2 = G[x][y][key2]['timestamp']
         #Python下将时间戳转换到日期
