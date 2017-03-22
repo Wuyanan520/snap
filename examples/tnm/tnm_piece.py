@@ -96,8 +96,8 @@ def time_swap(G0, nswap=1, max_tries=100):  #时变网络的时间置乱算法
     if len(G0) < 3:
         raise nx.NetworkXError("Graph has less than three nodes.")
     
-    n=0
-    swapcount=0
+    n = 0
+    swapcount = 0
     G = copy.deepcopy(G0)
     keys,degrees=zip(*G.degree().items()) 
     cdf=nx.utils.cumulative_distribution(degrees)
@@ -121,10 +121,19 @@ def time_swap(G0, nswap=1, max_tries=100):  #时变网络的时间置乱算法
         key2 = random.choice(G[x][y].keys())
         stamp1 = G[u][v][key1]['timestamp']
         stamp2 = G[x][y][key2]['timestamp']
-        stamp_uv = range(stamp1[0],stamp1[0]+stamp1[1]+1)
-        stamp_xy = range(stamp2[0],stamp2[0]+stamp1[1]+1)
-        # 若区间端有重叠，重选
-        if np.intersect1d(stamp_uv,stamp_xy) > 0 or {'timestamp':stamp1} in G[x][y].values() or {'timestamp':stamp2} in G[u][v].values():
+        stamp_uv = []
+        for k in G[u][v].keys():
+            if k == key1:
+                continue
+            s1 = G[u][v][k]['timestamp'] 
+            stamp_uv.extend(range(s1[0],s1[0]+s1[1]+1))
+        stamp_xy = []
+        for k in G[x][y].keys():
+            if k == key2:
+                continue
+            s2 = G[x][y][k]['timestamp'] 
+            stamp_xy.extend(range(s2[0],s2[0]+s2[1]+1))
+        if np.intersect1d(range(stamp1[0],stamp1[0]+stamp1[1]+1),stamp_xy).shape[0]>0 or np.intersect1d(range(stamp2[0],stamp2[0]+stamp2[1]+1),stamp_uv).shape[0]>0:
             continue
         else:
             G[u][v][key1]['timestamp'] = stamp2
@@ -134,7 +143,7 @@ def time_swap(G0, nswap=1, max_tries=100):  #时变网络的时间置乱算法
     
 def time_random(G0, nswap=1, max_tries=100,mins=1000000,maxs=31556926):  #时变网络的时间随机化算法
     """
-    在保证单条边上不出现重叠时间区间的前提下，任选一个时间戳用在该网络时间范围内的新生时间戳代替
+    在保证单条边上不出现重叠时间区间的前提下，任选一个时间戳用在该网络时间范围内的新生时间戳代替,delta为原uv边的delta
     """
     if nswap>max_tries:
         raise nx.NetworkXError("Number of swaps > number of tries allowed.")
@@ -144,27 +153,34 @@ def time_random(G0, nswap=1, max_tries=100,mins=1000000,maxs=31556926):  #时变
     n=0
     swapcount=0
     G = copy.deepcopy(G0)
+    
     while swapcount < nswap:
-#        print swapcount
         if n >= max_tries:
             e=('Maximum number of swap attempts (%s) exceeded '%n +
             'before desired swaps achieved (%s).'%nswap)
             print e
             break
+        
         n+=1
         u,v = random.choice(G.edges())
         key1 = random.choice(G[u][v].keys())
         stamp1 = G[u][v][key1]['timestamp']
         stamp2 = random.randrange(mins,maxs)
-        
-        stamp_uv = range(stamp1[0],stamp1[0]+stamp1[1]+1)
-        stamp_xy = range(stamp2[0],stamp2[0]+stamp1[1]+1)
-        if np.intersect1d(stamp_uv,stamp_xy) > 0 or {'timestamp':stamp2} in G[u][v].values():
+        stamp2 = (stamp2, min(maxs-stamp2,stamp1[1]))
+        # u,v边上的全部时间戳
+        stamp_uv = []
+        for k in G[u][v].keys():
+            if k == key1:
+                continue
+            s1 = G[u][v][k]['timestamp'] 
+            stamp_uv.extend(range(s1[0],s1[0]+s1[1]+1))
+            
+        if np.intersect1d(stamp_uv,range(stamp2[0],stamp2[0]+stamp1[1]+1)).shape[0] > 0 :
             continue
         else:
             G[u][v][key1]['timestamp'] = stamp2
             swapcount+=1
-        print n,swapcount
+            print swapcount
     return G
    
 def timeweight_swap(G0, nswap=1, max_tries=100):  #时变网络的时权置乱算法
@@ -304,19 +320,31 @@ def time_SameMode_swap(G0, nswap=1, max_tries=100, mode='day'):
             continue
         key1 = random.choice(G[u][v].keys())
         key2 = random.choice(G[x][y].keys())
+        stamp_uv = []
+        for k in G[u][v].keys():
+            if k == key1:
+                continue
+            s1 = G[u][v][k]['timestamp'] 
+            stamp_uv.extend(range(s1[0],s1[0]+s1[1]+1))
+        stamp_xy = []
+        for k in G[x][y].keys():
+            if k == key2:
+                continue
+            s2 = G[x][y][k]['timestamp'] 
+            stamp_xy.extend(range(s2[0],s2[0]+s2[1]+1))
         stamp1 = G[u][v][key1]['timestamp']
         stamp2 = G[x][y][key2]['timestamp']
         #Python下将时间戳转换到日期
-        stamp1_date = datetime.datetime.utcfromtimestamp(stamp1)
-        stamp2_date = datetime.datetime.utcfromtimestamp(stamp2)
+        stamp1_date = datetime.datetime.utcfromtimestamp(stamp1[0])
+        stamp2_date = datetime.datetime.utcfromtimestamp(stamp2[1])
         if mode == 'day': #保持个体天模式
-            if stamp1_date.day != stamp2_date.day or {'timestamp':stamp1} in G[x][y].values() or {'timestamp':stamp2} in G[u][v].values():
+            if stamp1_date.day != stamp2_date.day or np.intersect1d(range(stamp1[0],stamp1[0]+stamp1[1]+1),stamp_xy)>0 or np.intersect1d(range(stamp2[0],stamp2[0]+stamp2[1]+1),stamp_uv)>0:
                 continue
         elif mode == 'week': #保持个体周模式
-            if stamp1_date.weekday() != stamp2_date.weekday() or {'timestamp':stamp1} in G[x][y].values() or {'timestamp':stamp2} in G[u][v].values():
+            if stamp1_date.weekday() != stamp2_date.weekday() or np.intersect1d(range(stamp1[0],stamp1[0]+stamp1[1]+1),stamp_xy)>0 or np.intersect1d(range(stamp2[0],stamp2[0]+stamp2[1]+1),stamp_uv)>0:
                 continue
         elif mode == 'month': #保持个体月模式
-            if stamp1_date.month != stamp2_date.month or {'timestamp':stamp1} in G[x][y].values() or {'timestamp':stamp2} in G[u][v].values():
+            if stamp1_date.month != stamp2_date.month or np.intersect1d(range(stamp1[0],stamp1[0]+stamp1[1]+1),stamp_xy)>0 or np.intersect1d(range(stamp2[0],stamp2[0]+stamp2[1]+1),stamp_uv)>0:
                 continue
         else:
             G[u][v][key1]['timestamp'] = stamp2
